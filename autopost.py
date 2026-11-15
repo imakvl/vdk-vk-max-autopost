@@ -1,4 +1,4 @@
-import json, os, time
+import json, os, time, re
 from pathlib import Path
 import requests
 
@@ -108,27 +108,87 @@ def send(post):
             continue
         raise RuntimeError(f'MAX HTTP {r.status_code}: {r.text[:500]}')
 
+def is_advertisement(post):
+    text = post.get('text', '')
+
+    # Русская и английская маркировка рекламы
+    if re.search(
+        r'(?<!\w)(?:ерид|erid)\s*[:=№#-]?\s*[A-Za-z0-9_-]+',
+        text,
+        re.IGNORECASE
+    ):
+        return True
+
+    # Рекламная пометка ВКонтакте
+    if post.get('marked_as_ads') in (1, True):
+        return True
+
+    return False
+
+def is_repost(post):
+    # Проверяем, содержит ли запись историю репоста
+    return bool(post.get('copy_history'))
 
 def main():
     posts = vk_posts()
+
     if not posts:
         print('No VK posts')
         return
+
     if not STATE.exists():
-        # Bootstrap without publishing historical content.
-        STATE.write_text(json.dumps({'last_id': max(p['id'] for p in posts)}, indent=2) + '\n')
+        STATE.write_text(
+            json.dumps({
+                'last_id': max(p['id'] for p in posts)
+            }, indent=2) + '\n'
+        )
         print('Initialized: existing posts skipped')
         return
+
     state = json.loads(STATE.read_text())
     last_id = int(state['last_id'])
-    pending = sorted((p for p in posts if p['id'] > last_id), key=lambda p: p['id'])
+
+    pending = sorted(
+        (p for p in posts if p['id'] > last_id),
+        key=lambda p: p['id']
+    )
+
     if len(pending) >= 100:
-        raise RuntimeError('At least 100 new posts: increase polling frequency or implement pagination')
+        raise RuntimeError(
+            'At least 100 new posts: increase polling frequency'
+        )
+
+    published = 0
+    skipped_ads = 0
+    skipped_reposts = 0
+
     for p in pending:
-        send(p)
+
+        if is_advertisement(p):
+            print(f"SKIPPED AD: VK post {p['id']}")
+            skipped_ads += 1
+
+        elif is_repost(p):
+            print(f"SKIPPED REPOST: VK post {p['id']}")
+            skipped_reposts += 1
+
+        else:
+            send(p)
+            published += 1
+
+        # Запоминаем все обработанные записи,
+        # включая рекламу и репосты
         state['last_id'] = p['id']
-        STATE.write_text(json.dumps(state, indent=2) + '\n')
-    print(f'Processed {len(pending)} posts')
+
+        STATE.write_text(
+            json.dumps(state, indent=2) + '\n'
+        )
+
+    print(
+        f'Published: {published}, '
+        f'Skipped ads: {skipped_ads}, '
+        f'Skipped reposts: {skipped_reposts}'
+    )
 
 
 if __name__ == '__main__':
