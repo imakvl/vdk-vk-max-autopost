@@ -1,0 +1,43 @@
+name: VK to MAX autopost
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/10 * * * *'
+permissions:
+  contents: write
+concurrency:
+  group: vdk-autopost
+  cancel-in-progress: false
+jobs:
+  autopost:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Transfer new VK posts
+        env:
+          VK_TOKEN: ${{ secrets.VK_TOKEN }}
+          MAX_TOKEN: ${{ secrets.MAX_TOKEN }}
+          MAX_CHAT_ID: ${{ secrets.MAX_CHAT_ID }}
+        run: python autopost.py
+      - name: Save processed IDs
+        if: always()
+        run: |
+          if [ -f state.json ] && ! git diff --quiet -- state.json; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add state.json
+            git commit -m 'Update VK sync cursor'
+            git push
+          elif [ -f state.json ] && ! git ls-files --error-unmatch state.json >/dev/null 2>&1; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add state.json
+            git commit -m 'Initialize VK sync cursor'
+            git push
+          fi
