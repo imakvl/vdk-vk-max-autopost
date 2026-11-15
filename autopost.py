@@ -34,19 +34,61 @@ def photos(post):
 
 
 def upload_photo(url):
+    # Скачиваем фотографию из ВКонтакте
     image = requests.get(url, timeout=45)
     image.raise_for_status()
+
     if len(image.content) > 50 * 1024 * 1024:
         raise RuntimeError('Image exceeds MAX 50 MB limit')
-    upload = requests.post(f'{MAX_API}/uploads', params={'type': 'image'}, headers=HEADERS, timeout=30)
+
+    # Получаем ссылку для загрузки в MAX
+    upload = requests.post(
+        f'{MAX_API}/uploads',
+        params={'type': 'image'},
+        headers=HEADERS,
+        timeout=30
+    )
     upload.raise_for_status()
-    upload_url = upload.json()['url']
-    sent = requests.post(upload_url, files={'data': ('photo.jpg', image.content, image.headers.get('Content-Type', 'image/jpeg'))}, timeout=90)
+
+    upload_data = upload.json()
+    upload_url = upload_data['url']
+
+    # Загружаем фотографию
+    sent = requests.post(
+        upload_url,
+        files={
+            'data': (
+                'photo.jpg',
+                image.content,
+                image.headers.get('Content-Type', 'image/jpeg')
+            )
+        },
+        timeout=90
+    )
     sent.raise_for_status()
-    token = sent.json().get('token') or upload.json().get('token')
+
+    # Получаем токен фотографии из ответа MAX
+    data = sent.json()
+
+    token = data.get('token')
+
     if not token:
-        raise RuntimeError(f'MAX image upload returned no token: {sent.text[:300]}')
-    return {'type': 'image', 'payload': {'token': token}}
+        photos_data = data.get('photos', {})
+        photo = photos_data.get('0', {})
+        token = photo.get('token')
+
+    if not token:
+        raise RuntimeError(
+            'MAX image upload returned no token'
+        )
+
+    # Возвращаем вложение для публикации
+    return {
+        'type': 'image',
+        'payload': {
+            'token': token
+        }
+    }
 
 
 def send(post):
