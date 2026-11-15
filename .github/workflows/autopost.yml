@@ -24,6 +24,19 @@ jobs:
           VK_TOKEN: ${{ secrets.VK_TOKEN }}
           MAX_TOKEN: ${{ secrets.MAX_TOKEN }}
           MAX_CHAT_ID: ${{ secrets.MAX_CHAT_ID }}
+          - name: Install MAX trusted certificate
+        run: |
+          curl --fail --location --silent --show-error \
+            https://gu-st.ru/content/lending/russian_trusted_root_ca_pem.crt \
+            -o russian_trusted_root_ca.crt
+          test -s russian_trusted_root_ca.crt
+          sudo cp russian_trusted_root_ca.crt \
+            /usr/local/share/ca-certificates/russian_trusted_root_ca.crt
+          sudo update-ca-certificates
+          cat "$(python -m certifi)" \
+            russian_trusted_root_ca.crt > max-ca-bundle.pem
+          echo "REQUESTS_CA_BUNDLE=$GITHUB_WORKSPACE/max-ca-bundle.pem" \
+            >> "$GITHUB_ENV"
         run: python autopost.py
       - name: Save processed IDs
         if: always()
