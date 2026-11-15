@@ -39,7 +39,7 @@ jobs:
           MAX_CHAT_ID: ${{ secrets.MAX_CHAT_ID }}
         run: python autopost.py 
       - name: Save processed IDs
-        if: always()
+        if: success() || failure()
         run: |
           if [ -f state.json ] && ! git diff --quiet -- state.json; then
             git config user.name 'github-actions[bot]'
