@@ -1,0 +1,93 @@
+import json, os, time
+from pathlib import Path
+import requests
+
+VK_TOKEN = os.environ['VK_TOKEN']
+MAX_TOKEN = os.environ['MAX_TOKEN']
+CHAT_ID = os.environ['MAX_CHAT_ID']
+STATE = Path('state.json')
+VK_API = 'https://api.vk.com/method/wall.get'
+MAX_API = 'https://platform-api2.max.ru'
+HEADERS = {'Authorization': MAX_TOKEN}
+
+
+def vk_posts():
+    r = requests.get(VK_API, params={'domain': 'myvdk', 'count': 100, 'v': '5.199', 'access_token': VK_TOKEN}, timeout=30)
+    r.raise_for_status()
+    data = r.json()
+    if 'error' in data:
+        raise RuntimeError(f"VK API: {data['error']['error_code']} {data['error']['error_msg']}")
+    return [p for p in data['response']['items'] if not p.get('is_pinned') and not p.get('marked_as_ads')]
+
+
+def photos(post):
+    result = []
+    for a in post.get('attachments', []):
+        if a.get('type') != 'photo':
+            continue
+        sizes = a.get('photo', {}).get('sizes', [])
+        if sizes:
+            best = max(sizes, key=lambda s: s.get('width', 0) * s.get('height', 0))
+            if best.get('url'):
+                result.append(best['url'])
+    return result[:12]
+
+
+def upload_photo(url):
+    image = requests.get(url, timeout=45)
+    image.raise_for_status()
+    if len(image.content) > 50 * 1024 * 1024:
+        raise RuntimeError('Image exceeds MAX 50 MB limit')
+    upload = requests.post(f'{MAX_API}/uploads', params={'type': 'image'}, headers=HEADERS, timeout=30)
+    upload.raise_for_status()
+    upload_url = upload.json()['url']
+    sent = requests.post(upload_url, files={'data': ('photo.jpg', image.content, image.headers.get('Content-Type', 'image/jpeg'))}, timeout=90)
+    sent.raise_for_status()
+    token = sent.json().get('token') or upload.json().get('token')
+    if not token:
+        raise RuntimeError(f'MAX image upload returned no token: {sent.text[:300]}')
+    return {'type': 'image', 'payload': {'token': token}}
+
+
+def send(post):
+    attachments = [upload_photo(url) for url in photos(post)]
+    text = post.get('text', '').strip()
+    if not text and not attachments:
+        print(f"Skipping unsupported post {post['id']}")
+        return
+    payload = {'text': text, 'attachments': attachments}
+    for attempt in range(4):
+        r = requests.post(f'{MAX_API}/messages', params={'chat_id': CHAT_ID}, headers={**HEADERS, 'Content-Type': 'application/json'}, json=payload, timeout=60)
+        if r.ok:
+            print(f"Sent VK post {post['id']}")
+            return
+        if r.status_code in (429, 500, 502, 503, 504) and attempt < 3:
+            time.sleep(3 * (attempt + 1))
+            continue
+        raise RuntimeError(f'MAX HTTP {r.status_code}: {r.text[:500]}')
+
+
+def main():
+    posts = vk_posts()
+    if not posts:
+        print('No VK posts')
+        return
+    if not STATE.exists():
+        # Bootstrap without publishing historical content.
+        STATE.write_text(json.dumps({'last_id': max(p['id'] for p in posts)}, indent=2) + '\n')
+        print('Initialized: existing posts skipped')
+        return
+    state = json.loads(STATE.read_text())
+    last_id = int(state['last_id'])
+    pending = sorted((p for p in posts if p['id'] > last_id), key=lambda p: p['id'])
+    if len(pending) >= 100:
+        raise RuntimeError('At least 100 new posts: increase polling frequency or implement pagination')
+    for p in pending:
+        send(p)
+        state['last_id'] = p['id']
+        STATE.write_text(json.dumps(state, indent=2) + '\n')
+    print(f'Processed {len(pending)} posts')
+
+
+if __name__ == '__main__':
+    main()
