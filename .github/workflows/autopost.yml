@@ -19,12 +19,6 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements.txt
-      - name: Transfer new VK posts
-        env:
-          VK_TOKEN: ${{ secrets.VK_TOKEN }}
-          MAX_TOKEN: ${{ secrets.MAX_TOKEN }}
-          MAX_CHAT_ID: ${{ secrets.MAX_CHAT_ID }}
-        run: python autopost.py
       - name: Install MAX trusted certificate
         run: |
           curl --fail --location --silent --show-error \
@@ -37,7 +31,13 @@ jobs:
           cat "$(python -m certifi)" \
             russian_trusted_root_ca.crt > max-ca-bundle.pem
           echo "REQUESTS_CA_BUNDLE=$GITHUB_WORKSPACE/max-ca-bundle.pem" \
-            >> "$GITHUB_ENV"  
+            >> "$GITHUB_ENV"      
+      - name: Transfer new VK posts
+        env:
+          VK_TOKEN: ${{ secrets.VK_TOKEN }}
+          MAX_TOKEN: ${{ secrets.MAX_TOKEN }}
+          MAX_CHAT_ID: ${{ secrets.MAX_CHAT_ID }}
+        run: python autopost.py 
       - name: Save processed IDs
         if: always()
         run: |
