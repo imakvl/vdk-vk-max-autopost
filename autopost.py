@@ -172,43 +172,43 @@ def main():
             'At least 100 new posts: increase polling frequency'
         )
 
-published = 0
-skipped_ads = 0
-skipped_reposts = 0
-skipped_daily = 0
-
-for p in pending:
-
-    if is_advertisement(p):
-        print(f"SKIPPED AD: VK post {p['id']}")
-        skipped_ads += 1
-
-    elif is_repost(p):
-        print(f"SKIPPED REPOST: VK post {p['id']}")
-        skipped_reposts += 1
-
-    elif is_daily_hashtag_post(p.get('text', '')):
-        print(f"SKIPPED DAILY POST: VK post {p['id']}")
-        skipped_daily += 1
-
-    else:
-        send(p)
-        published += 1
-
-        # Сохраняем ID каждой обработанной записи,
-        # включая пропущенные публикации
-        state['last_id'] = p['id']
-
-        STATE.write_text(
-            json.dumps(state, indent=2) + '\n'
+    published = 0
+    skipped_ads = 0
+    skipped_reposts = 0
+    skipped_daily = 0
+    
+    for p in pending:
+    
+        if is_advertisement(p):
+            print(f"SKIPPED AD: VK post {p['id']}")
+            skipped_ads += 1
+    
+        elif is_repost(p):
+            print(f"SKIPPED REPOST: VK post {p['id']}")
+            skipped_reposts += 1
+    
+        elif is_daily_hashtag_post(p.get('text', '')):
+            print(f"SKIPPED DAILY POST: VK post {p['id']}")
+            skipped_daily += 1
+    
+        else:
+            send(p)
+            published += 1
+    
+            # Сохраняем ID каждой обработанной записи,
+            # включая пропущенные публикации
+            state['last_id'] = p['id']
+    
+            STATE.write_text(
+                json.dumps(state, indent=2) + '\n'
+            )
+    
+        print(
+            f'Published: {published}, '
+            f'Skipped ads: {skipped_ads}, '
+            f'Skipped reposts: {skipped_reposts}, '
+            f'Skipped daily: {skipped_daily}'
         )
-
-    print(
-        f'Published: {published}, '
-        f'Skipped ads: {skipped_ads}, '
-        f'Skipped reposts: {skipped_reposts}, '
-        f'Skipped daily: {skipped_daily}'
-    )
 
 
 if __name__ == '__main__':
