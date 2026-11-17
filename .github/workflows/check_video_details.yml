@@ -1,0 +1,36 @@
+name: Check VK video details
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install requests
+        run: python -m pip install requests
+
+      - name: Inspect video details
+        env:
+          VK_TOKEN: ${{ secrets.VK_TOKEN }}
+        run: python check_video_details.py
+
+      - name: Install yt-dlp
+        run: python -m pip install -U yt-dlp
+
+      - name: Test VK video extraction
+        run: |
+          yt-dlp --skip-download \
+            --no-playlist \
+            --no-warnings \
+            --print "Title: %(title)s" \
+            --print "Extension: %(ext)s" \
+            --print "Duration: %(duration)s" \
+            "https://vk.com/video-46218861_456244658"
