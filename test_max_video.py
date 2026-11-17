@@ -93,5 +93,5 @@ def main():
     print("No message was published.")
 
 
-if name == "main":
+if __name__ == "__main__":
     main()
