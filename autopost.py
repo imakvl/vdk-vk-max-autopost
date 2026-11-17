@@ -1,4 +1,4 @@
-import json
+ import json
 import os
 import re
 import time
@@ -436,5 +436,5 @@ def main():
     )
 
 
-if name == "main":
+if __name__ == "__main__":
     main()
