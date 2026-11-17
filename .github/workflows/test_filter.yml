@@ -1,0 +1,48 @@
+name: Test MAX hashtag filter
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check Python syntax
+        run: python -m py_compile autopost.py
+
+      - name: Test hashtag filter
+        env:
+          VK_TOKEN: test
+          MAX_TOKEN: test
+          MAX_CHAT_ID: test
+        run: |
+          python - <<'PY'
+          from autopost import is_daily_hashtag_post
+
+          assert is_daily_hashtag_post(
+              "#VDK #Vladivostok #Владивосток"
+          )
+
+          assert is_daily_hashtag_post(
+              "#владивосток #vdk #VLADIVOSTOK"
+          )
+
+          assert not is_daily_hashtag_post(
+              "#VDK #Vladivostok"
+          )
+
+          assert not is_daily_hashtag_post(
+              "Обычная новость Владивостока"
+          )
+
+          print("SUCCESS: hashtag filter works!")
+          PY
