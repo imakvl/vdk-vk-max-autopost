@@ -180,7 +180,8 @@ def upload_video(url):
             raise RuntimeError("VK video not downloaded")
 
         size_mb = path.stat().st_size / 1048576
-print(
+        
+        print(
             f"Video downloaded: {size_mb:.2f} MB",
             flush=True,
         )
