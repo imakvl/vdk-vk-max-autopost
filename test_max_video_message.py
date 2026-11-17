@@ -16,7 +16,6 @@ VIDEO_URL = "https://vk.com/video-46218861_456244658"
 def main():
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "video.mp4"
-
         print("1. Downloading video from VK...", flush=True)
 
         with yt_dlp.YoutubeDL({
@@ -29,7 +28,6 @@ def main():
 
         if not path.exists():
             raise RuntimeError("Video was not downloaded")
-
         print(f"Downloaded: {path.stat().st_size / 1048576:.2f} MB", flush=True)
 
         print("2. Requesting MAX upload URL...", flush=True)
@@ -43,6 +41,7 @@ def main():
         upload_data = response.json()
         upload_url = upload_data["url"]
         token = upload_data.get("token")
+        print("Upload token received:", bool(token), flush=True)
 
         print("3. Uploading video...", flush=True)
         with path.open("rb") as file:
@@ -51,31 +50,25 @@ def main():
                 files={"data": ("video.mp4", file, "video/mp4")},
                 timeout=180,
             )
+        print("Upload HTTP status:", uploaded.status_code, flush=True)
+        print("Upload Content-Type:", uploaded.headers.get("Content-Type"), flush=True)
+        print("Upload response length:", len(uploaded.content), flush=True)
         uploaded.raise_for_status()
 
-        print("Upload HTTP status:", uploaded.status_code)
-print("Upload Content-Type:", uploaded.headers.get("Content-Type"))
-    print("Upload response length:", len(uploaded.content))
+        if uploaded.content.strip():
+            try:
+                result = uploaded.json()
+            except ValueError:
+                print("Upload returned non-JSON response", flush=True)
+                result = {}
+        else:
+            print("Upload returned empty response", flush=True)
+            result = {}
 
-    uploaded.raise_for_status()
-
-    if uploaded.content.strip():
-        try:
-            result = uploaded.json()
-        except ValueError:
-            print("Upload returned non-JSON response")
-            print("Response preview:", uploaded.text[:300])
-            raise RuntimeError("MAX upload response is not JSON")
-    else:
-        print("Upload returned empty response")
-        result = {}
-
-    token = result.get("token")
-
-    if not token:
-        raise RuntimeError("MAX did not return a video token")
-
-    print("Video uploaded successfully", flush=True)
+        token = token or result.get("token")
+        if not token:
+            raise RuntimeError("MAX did not return a video token")
+        print("Video uploaded successfully", flush=True)
 
         payload = {
             "text": "Тест автопостинга видео ВКонтакте → MAX",
@@ -85,7 +78,6 @@ print("Upload Content-Type:", uploaded.headers.get("Content-Type"))
         }
 
         print("4. Waiting for video processing...", flush=True)
-
         for attempt in range(18):
             response = requests.post(
                 f"{API}/messages",
@@ -94,25 +86,17 @@ print("Upload Content-Type:", uploaded.headers.get("Content-Type"))
                 json=payload,
                 timeout=60,
             )
-
             if response.ok:
                 message = response.json().get("message", {})
                 print("SUCCESS: Video message published!", flush=True)
-                print(f"Message ID: {message.get('body', {}).get('mid', message.get('mid', 'unknown'))}")
+                print("Message ID:", message.get("body", {}).get("mid", message.get("mid", "unknown")))
                 return
-
             if response.status_code == 400:
-                print(f"Video not ready, attempt {attempt + 1}/18", flush=True)
+                print(f"MAX HTTP 400 on attempt {attempt + 1}/18; waiting...", flush=True)
                 time.sleep(10)
                 continue
-
-            raise RuntimeError(
-                f"MAX HTTP {response.status_code}: {response.text[:500]}"
-            )
-
-        raise RuntimeError(
-            "Video uploaded, but MAX did not accept the message"
-        )
+            raise RuntimeError(f"MAX HTTP {response.status_code}: {response.text[:500]}")
+        raise RuntimeError("Video uploaded, but MAX did not accept the message")
 
 
 if __name__ == "__main__":
