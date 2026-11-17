@@ -25,12 +25,19 @@ jobs:
       - name: Install yt-dlp
         run: python -m pip install -U yt-dlp
 
-      - name: Test VK video extraction
+      - name: Test VK video download
         run: |
-          yt-dlp --skip-download \
+          mkdir -p test_video
+
+          yt-dlp \
             --no-playlist \
             --no-warnings \
-            --print "Title: %(title)s" \
-            --print "Extension: %(ext)s" \
-            --print "Duration: %(duration)s" \
+            -f "best[ext=mp4]/best" \
+            -o "test_video/video.%(ext)s" \
             "https://vk.com/video-46218861_456244658"
+
+          echo "Downloaded files:"
+          ls -lh test_video/
+
+          echo "Video format:"
+          file test_video/*
