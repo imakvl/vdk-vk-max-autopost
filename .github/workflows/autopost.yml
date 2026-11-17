@@ -2,7 +2,7 @@ name: VK to MAX autopost
 on:
   workflow_dispatch:
   schedule:
-    - cron: '3,13,23,33,43,53 * * * *'
+    - cron: '17 * * * *'
 permissions:
   contents: write
 concurrency:
