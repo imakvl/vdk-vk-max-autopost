@@ -173,9 +173,9 @@ def main():
         )
 
 published = 0
-    skipped_ads = 0
-    skipped_reposts = 0
-    skipped_daily = 0
+skipped_ads = 0
+skipped_reposts = 0
+skipped_daily = 0
 
     for p in pending:
 
