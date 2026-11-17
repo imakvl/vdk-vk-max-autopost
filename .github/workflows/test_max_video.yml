@@ -20,6 +20,21 @@ jobs:
         run: |
           python -m pip install requests yt-dlp
 
+      - name: Install trusted CA certificates
+        run: |
+          curl -fsSL https://gu-st.ru/content/lending/russian_trusted_root_ca_pem.crt \
+            -o /tmp/russian-root-ca.crt
+
+          sudo cp /tmp/russian-root-ca.crt \
+            /usr/local/share/ca-certificates/russian-root-ca.crt
+
+          sudo update-ca-certificates
+
+          python -m pip install --upgrade certifi
+
+          cat /tmp/russian-root-ca.crt | sudo tee -a \
+            "$(python -c 'import certifi; print(certifi.where())')" > /dev/null
+
       - name: Test MAX video upload
         env:
           MAX_TOKEN: ${{ secrets.MAX_TOKEN }}
