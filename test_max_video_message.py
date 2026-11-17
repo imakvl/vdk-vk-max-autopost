@@ -58,19 +58,20 @@ print("Upload Content-Type:", uploaded.headers.get("Content-Type"))
 print("Upload response length:", len(uploaded.content))
 
 if uploaded.content.strip():
-    try:
-        result = uploaded.json()
-    except ValueError:
-        print("Upload returned non-JSON response")
-        print("Response preview:", uploaded.text[:300])
-        raise RuntimeError("MAX upload response is not JSON")
-else:
-    print("Upload returned empty response")
-    result = {}
-        token = token or result.get("token")
+        try:
+            result = uploaded.json()
+        except ValueError:
+            print("Upload returned non-JSON response")
+            print("Response preview:", uploaded.text[:300])
+            raise RuntimeError("MAX upload response is not JSON")
+    else:
+        print("Upload returned empty response")
+        result = {}
 
-        if not token:
-            raise RuntimeError("MAX did not return a video token")
+    token = token or result.get("token")
+
+    if not token:
+        raise RuntimeError("MAX did not return a video token")
 
         print("Video uploaded successfully", flush=True)
 
