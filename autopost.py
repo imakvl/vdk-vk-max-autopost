@@ -129,6 +129,20 @@ def is_repost(post):
     # Проверяем, содержит ли запись историю репоста
     return bool(post.get('copy_history'))
 
+def is_daily_hashtag_post(text):
+    hashtags = set(
+        tag.casefold()
+        for tag in re.findall(r"#[\w]+", text or "")
+    )
+
+    required = {
+        "#vdk",
+        "#vladivostok",
+        "#владивосток",
+    }
+
+    return required.issubset(hashtags)
+
 def main():
     posts = vk_posts()
 
@@ -158,9 +172,10 @@ def main():
             'At least 100 new posts: increase polling frequency'
         )
 
-    published = 0
+published = 0
     skipped_ads = 0
     skipped_reposts = 0
+    skipped_daily = 0
 
     for p in pending:
 
@@ -172,12 +187,16 @@ def main():
             print(f"SKIPPED REPOST: VK post {p['id']}")
             skipped_reposts += 1
 
+        elif is_daily_hashtag_post(p.get('text', '')):
+            print(f"SKIPPED DAILY POST: VK post {p['id']}")
+            skipped_daily += 1
+
         else:
             send(p)
             published += 1
 
-        # Запоминаем все обработанные записи,
-        # включая рекламу и репосты
+        # Сохраняем ID каждой обработанной записи,
+        # включая пропущенные публикации
         state['last_id'] = p['id']
 
         STATE.write_text(
@@ -187,7 +206,8 @@ def main():
     print(
         f'Published: {published}, '
         f'Skipped ads: {skipped_ads}, '
-        f'Skipped reposts: {skipped_reposts}'
+        f'Skipped reposts: {skipped_reposts}, '
+        f'Skipped daily: {skipped_daily}'
     )
 
 
